@@ -1,0 +1,54 @@
+genMasterKeyApp()
+    requestRegister() //Request register to server
+    validateServerCertificate() //Validate SSL certificate
+    sendTLSDeviceData() //Send some device data via TLS
+    code1, code2, code3 = receiveCodes() // Receive all random codes from server via TLS, SMS and e-mail 
+    IMEI = getIMEI() // Get IMEI from device
+    appRandNumber = genRandNumberApp() // Generate random application number
+    k = genTempKey(cod1, code2, code3) //Temporary encryption key
+    k1 = hash(k + appRandNumber) // Temporary decryption key
+    sendDeviceData(hash_k(IMEI+appRandNumber)) //Send IMEI and random number to server
+    serverData = receiveServerData() // Receive server data
+    serverRandNumber = decrypt_k1(serverData) // Decrypt server data
+    masterKey = hash_all(k + IMEI + serverRandNumber + appRandNumber) //Generate master key with all data
+
+
+genMasterKeyServer()
+    deviceData = receiveDeviceData() // Receie device data
+    serverRandNumber = genRandNumberServer() // Generat random server number
+    k = genTempKey(getCodes()) // Temporary decryption key
+    k1 = hash(k + appRandNumber) // Temporary encryption key
+
+    IMEI, appRandNumber = decrypt_k(deviceData) // Decrypt app data
+
+    masterKey = hash_all(k + IMEI + serverRandNumber + appRandNumber) // Generate master key with all data
+    
+    send (hash_k1(serverRandNumber)) // Send server data to app
+
+genCodes() //Send codes through differnt channels
+    sendEmailCode(genCodes())
+    sendSMSCode(genCodes())
+    sendTLSCode(genCodes())
+
+genTempKey(cod1, code, code3)
+    return hash(cod1, code, code3)
+
+sendEmailCode()
+    pass
+
+sendSMSCode()
+    pass
+
+sendTLSCode()
+    pass
+
+genRandNumberApp()
+    pass
+
+//________________________________________
+
+genRandNumberServer()
+    pass
+
+getServerData()
+    pass

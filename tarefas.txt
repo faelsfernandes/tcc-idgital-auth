@@ -1,0 +1,20 @@
+Validar certificado serviço;                                                
+    - Ao comunicar-se com a aplicação;                                      
+    - Talvez enviar alguns dados do dispositivo já.                         
+
+Solicitar registro da aplicacao;                                             
+    - Ao invés de pedir os códigos, solicitar o registro.                   
+
+Gerar os codigos e enviar;                                                      
+    - Gerar os 3 códigos;                                                   
+    - Verificar questão de out of band.                                     
+
+Formalizar no template do paper (whats);                                    
+    - Ilustrar funcoes de envio/recebimento de dados;                       
+    - Aplicar melhor a forma de formalização algoritmo e não pseudocódigo.  
+
+Fazer verificação formal (Tadeu ou Eu);                                     
+    - Será feita para validar a segurança do algoritmo;                     
+    - Utilizar base matemática (?);                                         
+    - Não sei fazer isso, tenho que ver.                                    
+____________________________________________________________________________
