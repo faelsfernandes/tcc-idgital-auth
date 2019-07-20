@@ -18,21 +18,21 @@ class Communication():
 	def __ini__(self):
 		pass
 
-	def genKeyK(self,code1, code2, code3):
+	def gen_kt1(self,code1, code2, code3):
 		'''
-		Function to generate temporary key: key_k.
+		Function to generate temporary key: kt1.
 		'''
-		key_k = str(code1) + str(code2) + str(code3) #Concatenate strings.
-		key_k = hashlib.sha256(key_k.encode()).hexdigest() #Get key_k hash.  
-		return key_k
+		kt1 = str(code1) + str(code2) + str(code3) #Concatenate strings.
+		kt1 = hashlib.sha256(kt1.encode()).hexdigest() #Get kt1 hash.  
+		return kt1
 
-	def genKeyM(self):
+	def gen_kt2(self):
 		'''
-		Function to generate temporary key: key_k.
+		Function to generate temporary key: kt1.
 		'''
-		key_m = str(self.imei) + str(self.appRandomNumber) + str(self.key_k)
-		key_m = hashlib.sha256(key_m.encode()).hexdigest() #Get key_k hash.  
-		return key_m
+		kt2 = str(self.imei) + str(self.app_rand1) + str(self.kt1)
+		kt2 = hashlib.sha256(kt2.encode()).hexdigest() #Get kt1 hash.  
+		return kt2
 
 	def encrypt(self,key, source, encode=True):
 		'''
@@ -65,9 +65,9 @@ class Communication():
 		'''
 		Function that just print all data.
 		'''
-		print("key_k: " + str(self.key_k))
-		print("key_m: " + str(self.key_m))
-		print("appRandomNumber: " + str(self.appRandomNumber))
-		print("serverRandomNumber: " + str(self.serverRandomNumber))
+		print("kt1: " + str(self.kt1))
+		print("kt2: " + str(self.kt2))
+		print("app_rand1: " + str(self.app_rand1))
+		print("server_rand: " + str(self.server_rand))
 		print("imei: " + str(self.imei))
 

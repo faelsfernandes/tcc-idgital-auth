@@ -17,15 +17,16 @@ class Client(Communication):
 	client_key = 'client.key'
 
 	#Data.
-	key_k = ''
-	key_m = ''
+	kt1 = ''
+	kt2 = ''
 	imei = ''
-	appRandomNumber = ''
-	serverRandomNumber = ''
+	app_rand1 = ''
+	server_rand = ''
 	deviceData = ''
 	randNumProof = ''
 	otpStatus = ''
 	authenticationKey = ''
+	master_key = ''
 
 	def __init__(self):
 		pass
@@ -38,7 +39,7 @@ class Client(Communication):
 		self.otpStatus = self.getOtpStatus(self.otpStatus) #Get OTP Status.
 		conn.send(pickle.dumps(self.otpStatus)) #Send OTP satatus.
 		if self.authenticationKey == '': #Test if it's the first authentication.
-			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.masterKey)
+			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.master_key)
 		else:
 			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.authenticationKey)
 
@@ -59,14 +60,14 @@ class Client(Communication):
 		code1 = pickle.loads(conn.recv(1024)) #Receive 'tls' code from server.
 		code2 = pickle.loads(conn.recv(1024)) #Receive 'sms' code from server.
 		code3 = pickle.loads(conn.recv(1024)) #Receive 'e-mail' code from server.
-		self.key_k = self.genKeyK(code1,code2,code3) #Generate temporary key: key_k.
-		self.sendDeviceData(str(self.key_k), conn) #Send device data to server.
-		self.key_m = self.genKeyM() #Generate temporary key: key_m.
-		self.sendProofKeyM(conn)
-		self.receiveServerProofKeyM(conn)
+		self.kt1 = self.gen_kt1(code1,code2,code3) #Generate temporary key: kt1.
+		self.sendDeviceData(str(self.kt1), conn) #Send device data to server.
+		self.kt2 = self.gen_kt2() #Generate temporary key: kt2.
 		self.receiveServerData(conn) #Receive server random number.
 		self.printData() #Just print all data.
-		self.genMasterKey() #Generate master key.
+		self.genmaster_key() #Generate master key.
+		self.sendProofkm(conn)
+		self.receiveServerProofkm(conn)
 		print("Closing connection")
 
 	def genAuthenticationKey(self, otpStatus, key):
@@ -90,29 +91,29 @@ class Client(Communication):
 			print("OTP STATUS: " + otpStatus)
 			return otpStatus
 
-	def genKeyK(self,code1, code2, code3):
+	def gen_kt1(self,code1, code2, code3):
 		'''
-		Function to generate temporary key: key_k.
+		Function to generate temporary key: kt1.
 		'''
-		key_k = str(code1) + str(code2) + str(code3) #Concatenate strings.
-		key_k = hashlib.sha256(key_k.encode()).hexdigest() #Get key_k hash.  
-		return key_k
+		kt1 = str(code1) + str(code2) + str(code3) #Concatenate strings.
+		kt1 = hashlib.sha256(kt1.encode()).hexdigest() #Get kt1 hash.  
+		return kt1
 
-	def genKeyM(self):
+	def gen_kt2(self):
 		'''
-		Function to generate temporary key: key_k.
+		Function to generate temporary key: kt1.
 		'''
-		key_m = str(self.imei) + str(self.appRandomNumber) + str(self.key_k)
-		key_m = hashlib.sha256(key_m.encode()).hexdigest() #Get key_k hash.  
-		return key_m
+		kt2 = str(self.imei) + str(self.app_rand1) + str(self.kt1)
+		kt2 = hashlib.sha256(kt2.encode()).hexdigest() #Get kt1 hash.  
+		return kt2
 
-	def genMasterKey(self):
+	def genmaster_key(self):
 		'''
 		Function that generate master key.
 		'''
-		self.masterKey = str(self.key_k) + str(self.key_m) + str(self.appRandomNumber) + str(self.serverRandomNumber) + str(self.imei)
-		self.masterKey = hashlib.sha256(self.masterKey.encode()).hexdigest()
-		print("MASTER KEY: " + self.masterKey)
+		self.master_key = str(self.kt1) + str(self.kt2) + str(self.app_rand1) + str(self.server_rand) + str(self.imei)
+		self.master_key = hashlib.sha256(self.master_key.encode()).hexdigest()
+		print("MASTER KEY: " + self.master_key)
 
 	def encrypt(self,key, source, encode=True):
 		'''
@@ -145,10 +146,10 @@ class Client(Communication):
 		'''
 		Function that just print all data.
 		'''
-		print("key_k: " + str(self.key_k))
-		print("key_m: " + str(self.key_m))
-		print("appRandomNumber: " + str(self.appRandomNumber))
-		print("serverRandomNumber: " + str(self.serverRandomNumber))
+		print("kt1: " + str(self.kt1))
+		print("kt2: " + str(self.kt2))
+		print("app_rand1: " + str(self.app_rand1))
+		print("server_rand: " + str(self.server_rand))
 		print("imei: " + str(self.imei))
 
 
@@ -157,39 +158,39 @@ class Client(Communication):
 		Function that receive server data.
 		'''
 		serverData = pickle.loads(conn.recv(1024)) #Receive device data.
-		decrypted = self.decrypt(bytes(self.key_m, "utf-8"), serverData, True)
+		decrypted = self.decrypt(bytes(self.kt2, "utf-8"), serverData, True)
 		decryptedData = str(decrypted, "utf-8")
-		self.serverRandomNumber = decryptedData
+		self.server_rand = decryptedData
 
-	def sendDeviceData(self, key_k, conn):
+	def sendDeviceData(self, kt1, conn):
 		'''
 		Function that send device data.
 		'''
 		self.imei = randint(100000000,999999999) #Generate random imei.
-		self.appRandomNumber = randint(100000000,999999999) #Generate application random number.
-		self.deviceData = str(self.imei) + "|" +str(self.appRandomNumber) #Concatenate device data.
-		encrypted = self.encrypt(bytes(key_k, "utf-8"), bytes(self.deviceData,"utf-8"), True) #Encrypt data.
+		self.app_rand1 = randint(100000000,999999999) #Generate application random number.
+		self.deviceData = str(self.imei) + "|" +str(self.app_rand1) #Concatenate device data.
+		encrypted = self.encrypt(bytes(kt1, "utf-8"), bytes(self.deviceData,"utf-8"), True) #Encrypt data.
 		conn.send(pickle.dumps(encrypted)) #Send encrypted data to server.
 		
-	def sendProofKeyM(self, conn):
+	def sendProofkm(self, conn):
 		'''
-		Function that send data to proof that key_m match.
+		Function that send data to proof that kt2 match.
 		'''
 		self.randNumProof = str(randint(10000000, 99999999)) #Generate another random number.
-		encryptedRanNum = self.encrypt(bytes(self.key_m, "utf-8"), bytes(self.randNumProof, "utf-8")) #Encrypt random number.
+		encryptedRanNum = self.encrypt(bytes(self.master_key, "utf-8"), bytes(self.randNumProof, "utf-8")) #Encrypt random number.
 		hashRanNum = hashlib.sha256(encryptedRanNum.encode()).hexdigest() #Generate the number hash.
 		conn.send(pickle.dumps(encryptedRanNum)) #Send encrypted number.
 		conn.send(pickle.dumps(hashRanNum)) #Send number hash.
 
-	def receiveServerProofKeyM(self,conn):
+	def receiveServerProofkm(self,conn):
 		'''
-		Function that receive data to proof that key_m match.
+		Function that receive data to proof that kt2 match.
 		'''
 		serverHash = pickle.loads(conn.recv(1024)) #Receive server hash.
 		hashProof = hashlib.sha256(str(int(self.randNumProof) + 1).encode()).hexdigest() #Generate own hash to compare.
 		try:
 			if serverHash == hashProof: #Test if it matchs.
-				print("Hashs key_m ok!")
+				print("MASTER KEY AUTHENTICATED")
 		except:
 			print("Error on match hashes...")
 
