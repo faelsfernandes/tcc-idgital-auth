@@ -1,0 +1,33 @@
+1 - Conecta com o servidor
+
+2 - Servidor -> cliente - Envia código 1 via tls (code1)
+
+3 - Servidor -> cliente - Envia código 2 via SMS (code2)
+
+4 - Servidor -> cliente - Envia código 1 via EMAIL (code3)
+
+5 - Cliente, Servidor - Gera KT1 H(code1||code2||code3) KT1 ARMAZENADA EM CONTEXTO
+
+6 - Cliente -> servidor - Envia dados de dispositivo cifrados por KT1 (imei|app_rand1) ARMEZENADOS EM CONTEXTO
+
+# - Servidor - decifra dados de dispositivo utilizando KT1
+
+7 - Cliente, Servidor - Gera KT2 H(imei||app_rand1||KT1) KT2 ARMAZENADA EM CONTEXTO
+
+8 - Servidor -> cliente - Envia dados do servidor cifrados por KT2 (server_rand) ARMEZENADO EM CONTEXTO
+
+# - Cliente - decifra dados do servidor utilizando KT2
+
+9 - Cliente, servidor - geram chave mestra Km = H(KT1||KT2||imei||app_rand1_server_rand) SALVA NO BANCO DE DADOS APÓS VERIFICAÇÃO SEGUINTE*
+
+10 - Cliente -> servidor - Envia app_rand2 cifrado por Km
+
+# - Servidor - Decifra app_rand2 com sua Km
+
+11 - Servidor -> cliente - envia (app_rand2 + 1) cifrado por Km
+
+12 - Cliente - Decifra (app_rand2 + 1) com sua Km
+
+
+
+Após a verificação dos passos 10-12, a chave mestra é salva no banco de dados do servidor e no dispositivo do cliente. Todas as outras informações armazenadas em contexto são descartadas.
