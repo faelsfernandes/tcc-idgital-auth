@@ -1,4 +1,4 @@
-import socket
+    import socket
 import ssl
 import re
 import pickle
@@ -138,6 +138,7 @@ class Server(Communication):
                         msg = conn.recv(4096)
                         if re.search('RegisterRequest', msg.decode("utf-8")):
                             print("Registering...")
+                            name = pickle.loads(conn.recv(1024))
                             code1,code2,code3 = self.genCodes() #Generate the 3 codes
                             conn.send(pickle.dumps(code1)) #Send 'tls code'.
                             conn.send(pickle.dumps(code2)) #Send 'sms code'.
