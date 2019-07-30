@@ -3,7 +3,7 @@ import socket
 import ssl
 import pickle
 import hashlib
-from hashlib import sha256
+from hashlib import sha512
 import base64
 import hmac
 from random import randint
@@ -38,40 +38,44 @@ class Client(Communication):
 		'''
 		Function that request authentication to server.
 		'''
+		self.otpStatus = self.getOtpStatus(self.otpStatus) #Get OTAC STATUS.
+		message = "ID|" + str(self.otpStatus)
 		conn.send(b'AuthenticationRequest') #Send authentication request message.
-		self.otpStatus = self.getOtpStatus(self.otpStatus) #Get OTP Status.
-		conn.send(pickle.dumps(self.otpStatus)) #Send OTP satatus.
 		if self.authenticationKey == '': #Test if it's the first authentication.
 			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.master_key)
 		else:
 			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.authenticationKey)
+		h = hmac.new(pickle.dumps(pickle.dumps(self.authenticationKey)), pickle.dumps(message), hashlib.sha256).hexdigest() #Generate hmac
 
-		conn.send(pickle.dumps(self.otpStatus)) #Send authentication code.
-		signature = hmac.new(str(self.authenticationKey),str(self.master_key),digestmod=hashlib.sha256).hexdigest()
-		print("AQUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII EU")
-		conn.send(pickle.dumps(self.authenticationKey)) #Send authentication code.
+		self.genQRCode(message)
+		name = str(self.authenticationKey) + ".png"
+		conn.send(pickle.dumps(name)) #Send message
+		conn.send(pickle.dumps(str(h))) #Send HMAC
+		print("OTAC STATUS " + str(self.otpStatus))
+		print("HMAC " + str(h))
 		receivedResponse = str(conn.recv(1024), "utf-8") #Receive the server response.
 
 		if receivedResponse == "AuthenticationSucessful": #Threat the server response.
 			print("Authentication Sucessful!")
 			self.otpStatus = str(int(self.otpStatus) + 1)
-			self.genQRCode()
+			self.genQRCode(message)
 		else:
 			print("Failed authentication")
 
 
-	def genQRCode(self):
+	def genQRCode(self, message):
 		qr = qrcode.QRCode(
 			version = 1,
 			error_correction = qrcode.constants.ERROR_CORRECT_H,
 			box_size = 10,
 			border = 4,
 			)
-		data = str(self.authenticationKey)
+		data = str(message)
 		qr.add_data(data)
 		qr.make(fit=True)
 		img = qr.make_image(fill='black', back_color='white')
-		img.save("otac.png")
+		name = str(self.authenticationKey) + ".png"
+		img.save(name)
 
 	def requestRegister(self, conn):
 		'''
@@ -90,7 +94,6 @@ class Client(Communication):
 		self.sendProofkm(conn)
 		self.receiveServerProofkm(conn)
 		self.authenticationKey = self.master_key
-		self.genQRCode()
 		print("Closing connection")
 
 	def genAuthenticationKey(self, otpStatus, key):
@@ -104,14 +107,14 @@ class Client(Communication):
 	
 	def getOtpStatus(self, otpStatus):
 		'''
-		Function that return the OTP status.
+		Function that return the OTAC STATUS.
 		'''
 		if otpStatus == '': #Test if it's the first authentication.
-			otpStatus = str(randint(1, 50000))
-			print("OTP STATUS: " + otpStatus)
+			otpStatus = str(1)
+			# print("OTAC STATUS: " + otpStatus)
 			return otpStatus
 		else:
-			print("OTP STATUS: " + otpStatus)
+			# print("OTAC STATUS: " + otpStatus)
 			return otpStatus
 
 	def gen_kt1(self,code1, code2, code3):
@@ -233,26 +236,28 @@ class Client(Communication):
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
 			conn.connect((self.addr, self.port))
-			print("SSL established. Peer: {}".format(conn.getpeercert()))
+			# print("SSL established. Peer: {}".format(conn.getpeercert()))
 			print("Sending: 'Register Request")
 			self.requestRegister(conn) #Call Register request functions.
 			conn.close()
-			print("Connection Closed!1")
+			# print("Connection Closed!1")
+			print("#####################\n")
 
 		except:
 		    print("Unable to connect1")
 
 		try:
-			# for i in range(0,1000): #Just to test some authentication requests.
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
-			conn.connect((self.addr, self.port))
-			print("SSL established. Peer: {}".format(conn.getpeercert()))
-			print("Sending: 'Authentication request")
-			
-			self.requestAuthentication(conn) #Call Authentication request function.
-			conn.close()
-			print("Connection Closed!2")
+			for i in range(0,10000): #Just to test some authentication requests.
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
+				conn.connect((self.addr, self.port))
+				# print("SSL established. Peer: {}".format(conn.getpeercert()))
+				print("Sending: 'Authentication request")
+				
+				self.requestAuthentication(conn) #Call Authentication request function.
+				conn.close()
+				# print("Connection Closed!2")
+				print("#####################\n")
 		except:
 			print("Unable to connect2")
 

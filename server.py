@@ -1,7 +1,12 @@
+from PIL import Image
+from pyzbar.pyzbar import decode
+import pyqrcode
+import qrtools
 import socket
 import ssl
 import re
 import pickle
+import hmac
 import hashlib
 import base64
 from communication import *
@@ -127,9 +132,9 @@ class Server(Communication):
         while True:
             print("Waiting for client")
             newsocket, fromaddr = bindsocket.accept()
-            print("Client connected: {}:{}".format(fromaddr[0], fromaddr[1]))
+            # print("Client connected: {}:{}".format(fromaddr[0], fromaddr[1]))
             conn = context.wrap_socket(newsocket, server_side=True)
-            print("SSL established. Peer: {}".format(conn.getpeercert()))
+            # print("SSL established. Peer: {}".format(conn.getpeercert()))
             buf = b''  # Buffer to hold received client msg
             
             try:
@@ -149,27 +154,43 @@ class Server(Communication):
                             self.printData() #Just print all data.
                             self.genmaster_key() #Generate master key.
                             self.receiveProofkm(conn,self.kt2)
+                            print("#####################\n")
                             break
                         elif re.search('AuthenticationRequest', msg.decode("utf-8")):
-                            self.otpStatus = pickle.loads(conn.recv(1024))
-                            print("OTP STATUS: " + str(self.otpStatus))
+                            message = pickle.loads(conn.recv(1024))
+                            qrCode = decode(Image.open(message))
+                            qrCodeClean = str(qrCode[0].data).split("b\'")[1]
+                            identification, authOtp = qrCodeClean.split("|")
+                            authOtp = authOtp.split("\'")[0]
+                            cliHash = pickle.loads(conn.recv(1024))
+
+                            authKey = ''
                             if self.authenticationKey == '':
-                                self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.master_key)
+                                authKey = self.genAuthenticationKey(authOtp, self.master_key)
                             else:
-                                self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.authenticationKey)
+                                authKey = self.genAuthenticationKey(authOtp, self.authenticationKey)
+                            print("OTAC STATUS  " + authOtp)
+                            content = "ID|" + authOtp
+                            servHash = hmac.new(pickle.dumps(pickle.dumps(authKey)), pickle.dumps(content), hashlib.sha256).hexdigest() #Generate hmac
+                            print("HMAC " + str(servHash))
+
                             
-                            # receivedHash = pickle.loads(conn.recv(1024))
-                            # print(type(receivedHash))
-                            if self.authenticationKey == self.authenticationKey:
+                            # data = decode(Image.open('ae59e448795f09b05dba7e0243dfa90586becf09f733054c6fffb898d82b9d91.png'))
+                            # data2 = str(data[0].data).split("b\'")[1]
+                            
+
+                            if cliHash == servHash:
                                 print("Authentication successful!")
                                 conn.send(b'AuthenticationSucessful')
-                                self.authenticationKey = ''
+                                self.authenticationKey = authKey
+                                self.otpStatus = authOtp
                             else:
                                 print("Failed authentication")
                             break
                     except:
                         print("Error while registering")
                         break
+                print("#####################\n")
             except:
                 print("Closing connection")
                 conn.shutdown(socket.SHUT_RDWR)
