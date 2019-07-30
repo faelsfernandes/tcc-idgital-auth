@@ -1,10 +1,11 @@
-import argparse
-from argparse import RawTextHelpFormatter
+import qrcode
 import socket
 import ssl
 import pickle
 import hashlib
+from hashlib import sha256
 import base64
+import hmac
 from random import randint
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
@@ -45,21 +46,38 @@ class Client(Communication):
 		else:
 			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.authenticationKey)
 
+		conn.send(pickle.dumps(self.otpStatus)) #Send authentication code.
+		signature = hmac.new(str(self.authenticationKey),str(self.master_key),digestmod=hashlib.sha256).hexdigest()
+		print("AQUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII EU")
 		conn.send(pickle.dumps(self.authenticationKey)) #Send authentication code.
 		receivedResponse = str(conn.recv(1024), "utf-8") #Receive the server response.
 
 		if receivedResponse == "AuthenticationSucessful": #Threat the server response.
 			print("Authentication Sucessful!")
 			self.otpStatus = str(int(self.otpStatus) + 1)
+			self.genQRCode()
 		else:
 			print("Failed authentication")
 
-	def requestRegister(self, conn, name):
+
+	def genQRCode(self):
+		qr = qrcode.QRCode(
+			version = 1,
+			error_correction = qrcode.constants.ERROR_CORRECT_H,
+			box_size = 10,
+			border = 4,
+			)
+		data = str(self.authenticationKey)
+		qr.add_data(data)
+		qr.make(fit=True)
+		img = qr.make_image(fill='black', back_color='white')
+		img.save("otac.png")
+
+	def requestRegister(self, conn):
 		'''
 		Function that request register to server.
 		'''
 		conn.send(b'RegisterRequest') #Send register Request.
-		conn.send(pickle.dumps(name))
 		code1 = pickle.loads(conn.recv(1024)) #Receive 'tls' code from server.
 		code2 = pickle.loads(conn.recv(1024)) #Receive 'sms' code from server.
 		code3 = pickle.loads(conn.recv(1024)) #Receive 'e-mail' code from server.
@@ -71,6 +89,8 @@ class Client(Communication):
 		self.genmaster_key() #Generate master key.
 		self.sendProofkm(conn)
 		self.receiveServerProofkm(conn)
+		self.authenticationKey = self.master_key
+		self.genQRCode()
 		print("Closing connection")
 
 	def genAuthenticationKey(self, otpStatus, key):
@@ -197,7 +217,7 @@ class Client(Communication):
 		except:
 			print("Error on match hashes...")
 
-	def connect(self, action, id):
+	def connect(self):
 		'''
 		Function to connect with server.
 		'''
@@ -209,66 +229,33 @@ class Client(Communication):
 		context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=self.server_cert)
 		context.load_cert_chain(certfile=self.client_cert, keyfile=self.client_key)
 
-		if action == "Register":
-			try:
-				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-				conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
-				conn.connect((self.addr, self.port))
-				print("SSL established. Peer: {}".format(conn.getpeercert()))
-				print("Sending: 'Register Request")
-				self.requestRegister(conn) #Call Register request functions.
-				conn.close()
-				print("Connection Closed!1")
+		try:
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
+			conn.connect((self.addr, self.port))
+			print("SSL established. Peer: {}".format(conn.getpeercert()))
+			print("Sending: 'Register Request")
+			self.requestRegister(conn) #Call Register request functions.
+			conn.close()
+			print("Connection Closed!1")
 
-			except:
-			    print("Unable to connect1")
-		else:
-			try:
-				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-				conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
-				conn.connect((self.addr, self.port))
-				print("SSL established. Peer: {}".format(conn.getpeercert()))
-				print("Sending: 'Authentication request")
-				
-				self.requestAuthentication(conn, i)doracl #Call Authentication request function.
-				conn.close()
-				print("Connection Closed!2")
-			except:
-				print("Unable to connect2")
+		except:
+		    print("Unable to connect1")
 
-def parseArguments():
-	'''
-	Função que identifica os argumentos passados.
-
-	:returns: parser -- objetos contendo os argumentos.
-	'''
-
-	parser = argparse.ArgumentParser(description='SAMU - Catraca', formatter_class=RawTextHelpFormatter)
-	parser.add_argument("-v", "--version", action='version', version='Catraca v1.0')
-	parser.add_argument("--register", action="store_const",const=True, help="Solicita registro")
-	parser.add_argument("--name", action="store_const", help="Define nome do usuario")
-	parser.add_argument("--auth", action="store_const", const=True, help="Solicita autenticacao")
-	parser.add_argument("--id", help="Define id do usuario")
-
-	return parser.parse_args()
+		try:
+			# for i in range(0,1000): #Just to test some authentication requests.
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
+			conn.connect((self.addr, self.port))
+			print("SSL established. Peer: {}".format(conn.getpeercert()))
+			print("Sending: 'Authentication request")
+			
+			self.requestAuthentication(conn) #Call Authentication request function.
+			conn.close()
+			print("Connection Closed!2")
+		except:
+			print("Unable to connect2")
 
 if __name__ == '__main__':
-	args = parseArguments()
-	if args.register == True:
-		if args.name == '':
-			print("Falta o nome")
-		else:
-			client = Client()
-			client.connect("Register")
-	elif args.auth == True::
-		if args.id == '':
-			print("Falta o ID")
-		else:
-			client. = Client()
-			client.connect("Auth")
-	else:
-		print("Problema ao processar requisicao")
-
-
-	# client = Client()
-	# client.connect()
+	client = Client()
+	client.connect()
