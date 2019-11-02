@@ -3,14 +3,28 @@ import socket
 import ssl
 import pickle
 import hashlib
-from hashlib import sha512
 import base64
 import hmac
+from hashlib import sha512
 from random import randint
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto import Random
 from communication import *
+import argparse
+from argparse import RawTextHelpFormatter
+
+
+def parseArguments():
+	parser = argparse.ArgumentParser(description='StopAndWait', formatter_class=RawTextHelpFormatter)
+	parser.add_argument('-v', '--version', action='version', version='')
+	parser.add_argument('--sip', default='127.0.0.1', type=str, help='Define server ip')
+	parser.add_argument('--sport', type=int, default=5567, help='Define server port')
+	parser.add_argument('--tip', default='127.0.0.1', type=str, help='Define turnstile ip')
+	parser.add_argument('--tport', type=int, default=5569, help='Define turnstile port')
+	parser.add_argument('--auth', type=int, default=5567, help='Amount of authentications')
+
+	return parser.parse_args()
 
 class Client(Communication):
 
@@ -18,6 +32,10 @@ class Client(Communication):
 	server_sni_hostname = 'iddigital.com'
 	client_cert = 'client.pem'
 	client_key = 'client.key'
+	sip = ''
+	sport = ''
+	tip = ''
+	tport = ''
 
 	#Data.
 	kt1 = ''
@@ -30,17 +48,22 @@ class Client(Communication):
 	otpStatus = ''
 	authenticationKey = ''
 	master_key = ''
+	my_id = ''
 
-	def __init__(self):
-		pass
+	def __init__(self, sip, sport, tip, tport):
+		self.sip = sip
+		self.sport = sport
+		self.tip = tip
+		self.tport = tport
 
 	def requestAuthentication(self, conn):
 		'''
 		Function that request authentication to server.
 		'''
 		self.otpStatus = self.getOtpStatus(self.otpStatus) #Get OTAC STATUS.
-		message = "ID|" + str(self.otpStatus)
-		conn.send(b'AuthenticationRequest') #Send authentication request message.
+		message = str(self.my_id) + '|' + str(self.otpStatus)
+		conn.send(b'AuthMe') #Send authentication request message.
+		# print('aaaaaaaa')
 		if self.authenticationKey == '': #Test if it's the first authentication.
 			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.master_key)
 		else:
@@ -53,16 +76,20 @@ class Client(Communication):
 		conn.send(pickle.dumps(str(h))) #Send HMAC
 		print("OTAC STATUS " + str(self.otpStatus))
 		print("HMAC " + str(h))
-		receivedResponse = str(conn.recv(1024), "utf-8") #Receive the server response.
+		# receivedResponse = str(conn.recv(1024), "utf-8") #Receive the server response.
 
-		if receivedResponse == "AuthenticationSucessful": #Threat the server response.
-			print("Authentication Sucessful!")
-			self.otpStatus = str(int(self.otpStatus) + 1)
-			self.genQRCode(message)
-		else:
-			print("Failed authentication")
+		# if receivedResponse == "AuthenticationSucessful": #Threat the server response.
+		# 	print("Authentication Sucessful!")
+		# 	self.otpStatus = str(int(self.otpStatus) + 1)
+		# 	self.genQRCode(message)
+		# else:
+		# 	print("Failed authentication")
 
-
+	def genAuthenticationKey(self, cli_otp, key):
+		for i in range(0,int(cli_otp)):
+			key = hashlib.sha256(key.encode()).hexdigest()
+		print("Authentication Key: " + key)
+		return key
 	def genQRCode(self, message):
 		qr = qrcode.QRCode(
 			version = 1,
@@ -94,6 +121,9 @@ class Client(Communication):
 		self.sendProofkm(conn)
 		self.receiveServerProofkm(conn)
 		self.authenticationKey = self.master_key
+		self.otpStatus = 1
+		self.my_id = pickle.loads(conn.recv(1024)) #Receive 'id' from server.
+		print('ID: {}'.format(self.my_id))
 		print("Closing connection")
 
 	def genAuthenticationKey(self, otpStatus, key):
@@ -220,47 +250,43 @@ class Client(Communication):
 		except:
 			print("Error on match hashes...")
 
-	def connect(self):
+	def listen(self):
+		# Cifragem só na associação. Não na autenticação.
 		'''
 		Function to connect with server.
 		'''
-		server_sni_hostname = 'iddigital.com'
-		server_cert = 'server.pem'
-		client_cert = 'client.pem'
-		client_key = 'client.key'
 
 		context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=self.server_cert)
 		context.load_cert_chain(certfile=self.client_cert, keyfile=self.client_key)
 
 		try:
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
-			conn.connect((self.addr, self.port))
-			# print("SSL established. Peer: {}".format(conn.getpeercert()))
-			print("Sending: 'Register Request")
-			self.requestRegister(conn) #Call Register request functions.
-			conn.close()
-			# print("Connection Closed!1")
-			print("#####################\n")
-
-		except:
-		    print("Unable to connect1")
-
-		try:
-			for i in range(0,10000): #Just to test some authentication requests.
+			for i in range(0,1): #Just to test some authentication requests
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				conn = context.wrap_socket(s, server_side=False, server_hostname=self.server_sni_hostname)
-				conn.connect((self.addr, self.port))
+				conn.connect((self.sip, self.sport))
 				# print("SSL established. Peer: {}".format(conn.getpeercert()))
-				print("Sending: 'Authentication request")
-				
-				self.requestAuthentication(conn) #Call Authentication request function.
+				print("Sending: 'Register Request")
+				self.requestRegister(conn) #Call Register request functions.
 				conn.close()
+				# print("Connection Closed!1")
+				print("#####################\n")
+
+		except:
+		    print("Unable to register")
+
+		try:
+			for i in range(0,1): #Just to test some authentication requests.
+				t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				t.connect((self.tip, self.tport))
+				print("Sending: 'Authentication request")
+				self.requestAuthentication(t) #Call Authentication request function.
+				t.close()
 				# print("Connection Closed!2")
 				print("#####################\n")
 		except:
-			print("Unable to connect2")
+			print("Unable to authenticate")
 
 if __name__ == '__main__':
-	client = Client()
-	client.connect()
+	args = parseArguments()
+	client = Client(args.sip, int(args.sport), args.tip, int(args.tport))
+	client.listen()

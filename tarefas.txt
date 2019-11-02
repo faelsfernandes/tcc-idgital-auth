@@ -18,3 +18,4 @@ Fazer verificação formal (Tadeu ou Eu);
     - Utilizar base matemática (?);                                         
     - Não sei fazer isso, tenho que ver.                                    
 ____________________________________________________________________________
+

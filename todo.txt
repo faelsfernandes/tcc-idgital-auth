@@ -1,0 +1,4 @@
+1 - Usar SSL só no registro, não na autenticação. Sistema-Catraca, Sistema-Uusário
+2 - Autenticação é só socket simples. 
+3 - Dá pra colocar o SMS em um novo canal
+4 - Modelar latência de registro de acordo com a quantidade de canais de comunicação

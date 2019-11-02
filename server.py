@@ -15,12 +15,28 @@ from random import randint
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto import Random
+import argparse
+from argparse import RawTextHelpFormatter
+import threading
+
+
+def parseArguments():
+    parser = argparse.ArgumentParser(description='StopAndWait', formatter_class=RawTextHelpFormatter)
+    parser.add_argument('-v', '--version', action='version', version='')
+    parser.add_argument('-ip', '--ip', default='127.0.0.1', type=str, help='Define ip')
+    parser.add_argument('-port', '--port', type=int, default=5567, help='Define port')
+    return parser.parse_args()
 
 class Server(Communication):
 
     #Communication server data.
     server_key = 'server.key'
     client_cert = 'client.pem'
+    addr = '127.0.0.1'
+    port = 5567
+    server_cert = 'server.pem'
+    server_key = 'server.key'
+
 
     #Data.
     kt1 = ''
@@ -32,9 +48,12 @@ class Server(Communication):
     master_key = ''
     otpStatus = ''
     authenticationKey = ''
+    user_list = {}
+    user_id = 0 
 
-    def __init__(self):
-        pass
+    def __init__(self, ip, port):
+        self.addr = ip
+        self.port = port
 
     def genAuthenticationKey(self, otpStatus, key):
         for i in range(0,int(otpStatus)):
@@ -42,13 +61,21 @@ class Server(Communication):
         print("Authentication Key: " + key)
         return key
 
+    # def autoIncrement(self):
+    #     print('PUTA QUE PARIUUUU')
+    #     self.user_id = self.user_id + 1
+    #     print("VALOOOOOOOOOOr" + str(self.user_id))
+
     def genmaster_key(self):
         '''
         Function that generate master key.
         '''
         self.master_key = str(self.kt1) + str(self.kt2) + str(self.app_rand1) + str(self.server_rand) + str(self.imei)
         self.master_key = hashlib.sha256(self.master_key.encode()).hexdigest()
-        print("MASTER KEY: " + self.master_key)
+        self.user_list[self.user_id] = [self.master_key, 0]
+        print("UserID:{}\nUserKey:{}".format(str(self.user_id), self.user_list[self.user_id]))
+        # for item in self.user_list:
+        #     print("UserID:{}\nUserKey:{}".format(str(item), self.user_list[item]))
 
     def genCodes(self):
         '''
@@ -115,87 +142,111 @@ class Server(Communication):
         '''
         Function that estabelish connection with client
         '''
-        addr = '127.0.0.1'
-        port = 5567
-        server_cert = 'server.pem'
-        server_key = 'server.key'
-
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         context.verify_mode = ssl.CERT_REQUIRED
         context.load_cert_chain(certfile=self.server_cert, keyfile=self.server_key)
         context.load_verify_locations(cafile=self.client_cert)
 
         bindsocket = socket.socket()
+        bindsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         bindsocket.bind((self.addr, self.port))
         bindsocket.listen(5)
 
-        while True:
-            print("Waiting for client")
-            newsocket, fromaddr = bindsocket.accept()
-            # print("Client connected: {}:{}".format(fromaddr[0], fromaddr[1]))
-            conn = context.wrap_socket(newsocket, server_side=True)
-            # print("SSL established. Peer: {}".format(conn.getpeercert()))
-            buf = b''  # Buffer to hold received client msg
+        try: 
+            while True:
+                print("Waiting for client")
+                newsocket,addr = bindsocket.accept()
+                # print("Client connected: {}:{}".format(fromaddr[0], fromaddr[1]))
+                conn = context.wrap_socket(newsocket, server_side=True)
+                aux = threading.Thread(target=self.filterMessages, args=(conn,))
+                aux.start()
+                # print("SSL established. Peer: {}".format(conn.getpeercert()))
+        except:
+            print('Error while threading')
+                
             
-            try:
-                while True:
-                    try:
-                        msg = conn.recv(4096)
-                        if re.search('RegisterRequest', msg.decode("utf-8")):
-                            print("Registering...")
-                            code1,code2,code3 = self.genCodes() #Generate the 3 codes
-                            conn.send(pickle.dumps(code1)) #Send 'tls code'.
-                            conn.send(pickle.dumps(code2)) #Send 'sms code'.
-                            conn.send(pickle.dumps(code3)) #Send 'e-mail code'.
-                            self.kt1 = self.gen_kt1(code1, code2, code3) #Generate temporary key: kt1.
-                            self.receiveDeviceData(conn) #Receive device data from app.
-                            self.kt2 = self.gen_kt2() #Generate temporary key: kt2.
-                            self.sendServerData(self.kt2, conn) #Send server random number.
-                            self.printData() #Just print all data.
-                            self.genmaster_key() #Generate master key.
-                            self.receiveProofkm(conn,self.kt2)
-                            print("#####################\n")
-                            break
-                        elif re.search('AuthenticationRequest', msg.decode("utf-8")):
-                            message = pickle.loads(conn.recv(1024))
-                            qrCode = decode(Image.open(message))
-                            qrCodeClean = str(qrCode[0].data).split("b\'")[1]
-                            identification, authOtp = qrCodeClean.split("|")
-                            authOtp = authOtp.split("\'")[0]
-                            cliHash = pickle.loads(conn.recv(1024))
-
-                            authKey = ''
-                            if self.authenticationKey == '':
-                                authKey = self.genAuthenticationKey(authOtp, self.master_key)
-                            else:
-                                authKey = self.genAuthenticationKey(authOtp, self.authenticationKey)
-                            print("OTAC STATUS  " + authOtp)
-                            content = "ID|" + authOtp
-                            servHash = hmac.new(pickle.dumps(pickle.dumps(authKey)), pickle.dumps(content), hashlib.sha256).hexdigest() #Generate hmac
-                            print("HMAC " + str(servHash))
-
-                            
-                            # data = decode(Image.open('ae59e448795f09b05dba7e0243dfa90586becf09f733054c6fffb898d82b9d91.png'))
-                            # data2 = str(data[0].data).split("b\'")[1]
-                            
-
-                            if cliHash == servHash:
-                                print("Authentication successful!")
-                                conn.send(b'AuthenticationSucessful')
-                                self.authenticationKey = authKey
-                                self.otpStatus = authOtp
-                            else:
-                                print("Failed authentication")
-                            break
-                    except:
-                        print("Error while registering")
-                        break
+    def filterMessages(self, conn):
+        # try:
+        while True:
+            # try:
+            msg = conn.recv(4096)
+            if re.search('RegisterRequest', msg.decode("utf-8")):
+                print("Registering...")
+                code1,code2,code3 = self.genCodes() #Generate the 3 codes
+                conn.send(pickle.dumps(code1)) #Send 'tls code'.
+                conn.send(pickle.dumps(code2)) #Send 'sms code'.
+                conn.send(pickle.dumps(code3)) #Send 'e-mail code'.
+                self.kt1 = self.gen_kt1(code1, code2, code3) #Generate temporary key: kt1.
+                self.receiveDeviceData(conn) #Receive device data from app.
+                self.kt2 = self.gen_kt2() #Generate temporary key: kt2.
+                self.sendServerData(self.kt2, conn) #Send server random number.
+                self.printData() #Just print all data.
+                self.genmaster_key() #Generate master key.
+                self.receiveProofkm(conn,self.kt2)
+                conn.send(pickle.dumps(self.user_id)) #Send 'e-mail code'.
+                self.user_id = self.user_id + 1
                 print("#####################\n")
-            except:
-                print("Closing connection")
-                conn.shutdown(socket.SHUT_RDWR)
-                conn.close()
+
+            elif re.search('AuthUser', msg.decode("utf-8")):
+                identification = pickle.loads(conn.recv(1024))
+                for user in self.user_list.values():
+                    if int(identification) in user:
+                        conn.send(b'Yes')
+                        print(user[0])
+                        conn.send(pickle.dumps(user[0]))
+                        conn.send(pickle.dumps(user[1]))
+                        user[0] = pickle.loads(conn.recv(1024))
+                        user[1] = pickle.loads(conn.recv(1024))
+                        pass
+                conn.send(b'NO')
+
+                        
+
+            # except:
+            #     print("Error while AUTHENTICATING")
+            #     break
+        print("#####################\n")
+        # except:
+        #     print("Closing connection")
+        #     conn.shutdown(socket.SHUT_RDWR)
+        #     conn.close()
 
 if __name__ == '__main__':
-    server = Server()
+    args = parseArguments()
+    server = Server(args.ip, int(args.port))
     server.connection()
+
+
+
+     # TIME
+                        # Medir dump do qrcode, etc...
+                        # elif re.search('AuthenticationRequest', msg.decode("utf-8")):
+                        #     message = pickle.loads(conn.recv(1024))
+                        #     qrCode = decode(Image.open(message))
+                        #     qrCodeClean = str(qrCode[0].data).split("b\'")[1]
+                        #     identification, authOtp = qrCodeClean.split("|")
+                        #     authOtp = authOtp.split("\'")[0]
+                        #     cliHash = pickle.loads(conn.recv(1024))
+
+                        #     authKey = ''
+                        #     if self.authenticationKey == '':
+                        #         authKey = self.genAuthenticationKey(authOtp, self.master_key)
+                        #     else:
+                        #         authKey = self.genAuthenticationKey(authOtp, self.authenticationKey)
+                        #     print("OTAC STATUS  " + authOtp)
+                        #     content = "ID|" + authOtp
+                        #     servHash = hmac.new(pickle.dumps(pickle.dumps(authKey)), pickle.dumps(content), hashlib.sha256).hexdigest() #Generate hmac
+                        #     print("HMAC " + str(servHash))
+
+                            
+                        #     # data = decode(Image.open('ae59e448795f09b05dba7e0243dfa90586becf09f733054c6fffb898d82b9d91.png'))
+                        #     # data2 = str(data[0].data).split("b\'")[1]
+                            
+                        #     if cliHash == servHash:
+                        #         print("Authentication successful!")
+                        #         conn.send(b'AuthenticationSucessful')
+                        #         self.authenticationKey = authKey
+                        #         self.otpStatus = authOtp
+                        #     else:
+                        #         print("Failed authentication")
+                        #     break
