@@ -5,13 +5,16 @@ import pickle
 import hashlib
 import base64
 import hmac
+import binascii
 from hashlib import sha512
+import os
 from random import randint
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto import Random
 from communication import *
 import argparse
+import time
 from argparse import RawTextHelpFormatter
 
 
@@ -60,35 +63,43 @@ class Client(Communication):
 		'''
 		Function that request authentication to server.
 		'''
-		self.otpStatus = self.getOtpStatus(self.otpStatus) #Get OTAC STATUS.
-		message = str(self.my_id) + '|' + str(self.otpStatus)
-		conn.send(b'AuthMe') #Send authentication request message.
-		# print('aaaaaaaa')
-		if self.authenticationKey == '': #Test if it's the first authentication.
-			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.master_key)
+		# conn.send(b'AuthMe') #Send authentication request message.
+
+		if self.authenticationKey == '':
+			self.authenticationKey = hashlib.sha256(self.master_key.encode())
+			self.authenticationKey = str(self.authenticationKey)
+			self.authenticationKey = str(self.authenticationKey.hexdigest())
+			self.otpStatus = 1
 		else:
-			self.authenticationKey = self.genAuthenticationKey(self.otpStatus, self.authenticationKey)
-		h = hmac.new(pickle.dumps(pickle.dumps(self.authenticationKey)), pickle.dumps(message), hashlib.sha256).hexdigest() #Generate hmac
-
+			self.authenticationKey = hashlib.sha256(self.authenticationKey.encode())
+			self.authenticationKey = str(self.authenticationKey.hexdigest())
+			self.otpStatus = int(self.otpStatus)+1
+		# print('AAAAAAAAAAAAAA')
+		message = str(self.my_id) + '|' + str(self.otpStatus)
+		# print('MESSAGEEE: {}\nAUTH: {}\n'.format(message, self.authenticationKey))			
+		h = hmac.new(pickle.dumps(self.authenticationKey), pickle.dumps(message), hashlib.sha256)
+		h = str(h.hexdigest())
 		self.genQRCode(message)
-		name = str(self.authenticationKey) + ".png"
-		conn.send(pickle.dumps(name)) #Send message
-		conn.send(pickle.dumps(str(h))) #Send HMAC
-		print("OTAC STATUS " + str(self.otpStatus))
-		print("HMAC " + str(h))
-		# receivedResponse = str(conn.recv(1024), "utf-8") #Receive the server response.
+		file_name = str(self.authenticationKey) + '.png'
+		# print('MESSAGEEE: {}\nAUTH: {}\nHASH: {}'.format(message, self.authenticationKey,h))			
+		conn.send(pickle.dumps(file_name))
+		conn.send(pickle.dumps(h))
 
-		# if receivedResponse == "AuthenticationSucessful": #Threat the server response.
-		# 	print("Authentication Sucessful!")
-		# 	self.otpStatus = str(int(self.otpStatus) + 1)
-		# 	self.genQRCode(message)
-		# else:
-		# 	print("Failed authentication")
+		response = conn.recv(1024)
+		if response == b'Auth':
+			# print('AuthenticateD!!!')
+			pass
+		else:
+			print('DEu erro')
+		# pass
 
-	def genAuthenticationKey(self, cli_otp, key):
-		for i in range(0,int(cli_otp)):
-			key = hashlib.sha256(key.encode()).hexdigest()
-		print("Authentication Key: " + key)
+
+
+	def genAuthenticationKey(self, last_otp, new_otp, key):
+		for i in range(int(last_otp), int(new_otp)):
+			key = hashlib.sha256(key.encode())
+			key = str(key.hexdigest())
+		# print("Authentication Key: " + key)
 		return key
 	def genQRCode(self, message):
 		qr = qrcode.QRCode(
@@ -97,8 +108,7 @@ class Client(Communication):
 			box_size = 10,
 			border = 4,
 			)
-		data = str(message)
-		qr.add_data(data)
+		qr.add_data(message)
 		qr.make(fit=True)
 		img = qr.make_image(fill='black', back_color='white')
 		name = str(self.authenticationKey) + ".png"
@@ -121,19 +131,11 @@ class Client(Communication):
 		self.sendProofkm(conn)
 		self.receiveServerProofkm(conn)
 		self.authenticationKey = self.master_key
-		self.otpStatus = 1
+		self.otpStatus = 0
 		self.my_id = pickle.loads(conn.recv(1024)) #Receive 'id' from server.
+		
 		print('ID: {}'.format(self.my_id))
 		print("Closing connection")
-
-	def genAuthenticationKey(self, otpStatus, key):
-		'''
-		Function that generate authentication key.
-		'''
-		for i in range(0,int(otpStatus)): #Just do the hash according to otpStatus value.
-			key = hashlib.sha256(key.encode()).hexdigest()
-		print("Authentication Key: " + key)
-		return key
 	
 	def getOtpStatus(self, otpStatus):
 		'''
@@ -249,6 +251,7 @@ class Client(Communication):
 				print("MASTER KEY AUTHENTICATED")
 		except:
 			print("Error on match hashes...")
+			pass
 
 	def listen(self):
 		# Cifragem só na associação. Não na autenticação.
@@ -269,22 +272,29 @@ class Client(Communication):
 				self.requestRegister(conn) #Call Register request functions.
 				conn.close()
 				# print("Connection Closed!1")
-				print("#####################\n")
+				# print("#####################\n")
 
 		except:
 		    print("Unable to register")
 
 		try:
-			for i in range(0,1): #Just to test some authentication requests.
-				t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-				t.connect((self.tip, self.tport))
-				print("Sending: 'Authentication request")
+			ini = time.time()
+			t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			t.connect((self.tip, self.tport))
+			for i in range(0,10): #Just to test some authentication requests.
+
+				# print("Sending: 'Authentication request")
 				self.requestAuthentication(t) #Call Authentication request function.
-				t.close()
+
 				# print("Connection Closed!2")
-				print("#####################\n")
+				# print("#####################\n")
+			t.close()
+
+			fim = time.time()
+			print('Tempo:{}'.format(fim-ini))
 		except:
 			print("Unable to authenticate")
+			pass
 
 if __name__ == '__main__':
 	args = parseArguments()

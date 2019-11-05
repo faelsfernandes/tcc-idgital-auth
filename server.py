@@ -72,7 +72,11 @@ class Server(Communication):
         '''
         self.master_key = str(self.kt1) + str(self.kt2) + str(self.app_rand1) + str(self.server_rand) + str(self.imei)
         self.master_key = hashlib.sha256(self.master_key.encode()).hexdigest()
+        self.authenticationKey = hashlib.sha256(self.master_key.encode())
+        # self.authenticationKey = str(self.authenticationKey.hexdigest())
+        # self.authenticationKey = str(self.authenticationKey)
         self.user_list[self.user_id] = [self.master_key, 0]
+
         print("UserID:{}\nUserKey:{}".format(str(self.user_id), self.user_list[self.user_id]))
         # for item in self.user_list:
         #     print("UserID:{}\nUserKey:{}".format(str(item), self.user_list[item]))
@@ -99,7 +103,8 @@ class Server(Communication):
             decrypted = int(self.decrypt(bytes(self.master_key, "utf-8"), decryptedRandNum, True))#Decrypt number and sum 1.
             print("MASTER KEY AUTHENTICATED")
         except:
-            print("Could not decrypt number")
+            # print("Could not decrypt number")
+            pass
 
         self.sendProofkm(conn, decrypted) #Call function to send the new hash to app.
 
@@ -163,6 +168,7 @@ class Server(Communication):
                 # print("SSL established. Peer: {}".format(conn.getpeercert()))
         except:
             print('Error while threading')
+            pass
                 
             
     def filterMessages(self, conn):
@@ -170,7 +176,8 @@ class Server(Communication):
         while True:
             # try:
             msg = conn.recv(4096)
-            if re.search('RegisterRequest', msg.decode("utf-8")):
+            # if re.search('RegisterRequest', msg.decode('utf-8').strip()):
+            if msg == b'RegisterRequest':
                 print("Registering...")
                 code1,code2,code3 = self.genCodes() #Generate the 3 codes
                 conn.send(pickle.dumps(code1)) #Send 'tls code'.
@@ -187,25 +194,28 @@ class Server(Communication):
                 self.user_id = self.user_id + 1
                 print("#####################\n")
 
-            elif re.search('AuthUser', msg.decode("utf-8")):
+            # elif re.search('AuthUser', msg.decode("utf-8")):
+            elif msg == b'AuthUser':
+                isthere = False
                 identification = pickle.loads(conn.recv(1024))
-                for user in self.user_list.values():
-                    if int(identification) in user:
+                for key, user in self.user_list.items():
+                    if int(identification) == key:
                         conn.send(b'Yes')
-                        print(user[0])
                         conn.send(pickle.dumps(user[0]))
                         conn.send(pickle.dumps(user[1]))
-                        user[0] = pickle.loads(conn.recv(1024))
-                        user[1] = pickle.loads(conn.recv(1024))
-                        pass
-                conn.send(b'NO')
-
+                        isthere = True
                         
+                # conn.send(b'No')
 
-            # except:
-            #     print("Error while AUTHENTICATING")
-            #     break
-        print("#####################\n")
+                if isthere == False:
+                    print('SENDING NO')
+                    print(self.user_list)
+                    conn.send(b'No')
+                    # break
+
+                    # continue
+                
+        print("NEWWW #####################\n")
         # except:
         #     print("Closing connection")
         #     conn.shutdown(socket.SHUT_RDWR)
