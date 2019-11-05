@@ -22,15 +22,17 @@ class Communication():
 		'''
 		Function to generate temporary key: kt1.
 		'''
-		kt1 = str(code1) + str(code2) + str(code3) #Concatenate strings.
-		kt1 = hashlib.sha256(kt1.encode()).hexdigest() #Get kt1 hash.  
+		# kt1 = str(code1) + str(code2) + str(code3) #Concatenate strings.
+		kt1 = code1 + code2 + code3 #Concatenate strings.
+		kt1 = hashlib.sha256(kt1.encode()) #Get kt1 hash.  
+		kt1 = str(kt1.hexdigest())
 		return kt1
 
 	def gen_kt2(self):
 		'''
 		Function to generate temporary key: kt1.
 		'''
-		kt2 = str(self.imei) + str(self.app_rand1) + str(self.kt1)
+		kt2 = self.imei + self.app_rand1 + self.kt1
 		kt2 = hashlib.sha256(kt2.encode()).hexdigest() #Get kt1 hash.  
 		return kt2
 
@@ -44,6 +46,7 @@ class Communication():
 		padding = AES.block_size - len(source) % AES.block_size  #Calculate needed padding
 		source += bytes([padding]) * padding  #Add padding;
 		data = IV + encryptor.encrypt(source)  #Store the IV at the beginning and encrypt;
+		# print(data)
 		return base64.b64encode(data).decode("utf-8") if encode else data
 
 	def decrypt(self,key, source, decode=True):

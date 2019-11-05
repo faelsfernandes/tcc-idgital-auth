@@ -53,6 +53,8 @@ class Client(Communication):
 	master_key = ''
 	my_id = ''
 
+	list_time = list()
+
 	def __init__(self, sip, sport, tip, tport):
 		self.sip = sip
 		self.sport = sport
@@ -63,31 +65,40 @@ class Client(Communication):
 		'''
 		Function that request authentication to server.
 		'''
-		# conn.send(b'AuthMe') #Send authentication request message.
-
+		# conn.sendall(b'AuthMe') #Send authentication request message.
+		ini = time.time()
 		if self.authenticationKey == '':
 			self.authenticationKey = hashlib.sha256(self.master_key.encode())
 			self.authenticationKey = str(self.authenticationKey)
 			self.authenticationKey = str(self.authenticationKey.hexdigest())
 			self.otpStatus = 1
+			# print('OTPSTATUS: {}'.format(self.otpStatus))
 		else:
 			self.authenticationKey = hashlib.sha256(self.authenticationKey.encode())
 			self.authenticationKey = str(self.authenticationKey.hexdigest())
 			self.otpStatus = int(self.otpStatus)+1
-		# print('AAAAAAAAAAAAAA')
+			# print('OTPSTATUS: {}'.format(self.otpStatus))
 		message = str(self.my_id) + '|' + str(self.otpStatus)
 		# print('MESSAGEEE: {}\nAUTH: {}\n'.format(message, self.authenticationKey))			
 		h = hmac.new(pickle.dumps(self.authenticationKey), pickle.dumps(message), hashlib.sha256)
 		h = str(h.hexdigest())
+		fim = time.time()
 		self.genQRCode(message)
-		file_name = str(self.authenticationKey) + '.png'
-		# print('MESSAGEEE: {}\nAUTH: {}\nHASH: {}'.format(message, self.authenticationKey,h))			
-		conn.send(pickle.dumps(file_name))
-		conn.send(pickle.dumps(h))
+		file_name = str(self.authenticationKey)
+		conn.sendall(bytes(h.encode()))
+		conn.sendall(bytes(file_name.encode()))
+
+		self.list_time.append(float(fim-ini))
+		value = 0
+		for i in self.list_time:
+			value = value + i
+		print('time: {}'.format(value))
 
 		response = conn.recv(1024)
+		# print('\nAUTH: {}\n'.format(h))			
+
 		if response == b'Auth':
-			# print('AuthenticateD!!!')
+			print('AuthenticateD!!!')
 			pass
 		else:
 			print('DEu erro')
@@ -118,13 +129,18 @@ class Client(Communication):
 		'''
 		Function that request register to server.
 		'''
-		conn.send(b'RegisterRequest') #Send register Request.
-		code1 = pickle.loads(conn.recv(1024)) #Receive 'tls' code from server.
-		code2 = pickle.loads(conn.recv(1024)) #Receive 'sms' code from server.
-		code3 = pickle.loads(conn.recv(1024)) #Receive 'e-mail' code from server.
-		self.kt1 = self.gen_kt1(code1,code2,code3) #Generate temporary key: kt1.
+		conn.sendall(b'RegisterRequest') #Send register Request.
+		code1 = conn.recv(1024).decode()
+		code2 = conn.recv(1024).decode()
+		code3 = conn.recv(1024).decode()
+		self.kt1 = self.gen_kt1(code1, code2, code3)
+		# print('Code: {}'.format(code1))
+		# print('Code: {}'.format(code2))
+		# print('Code: {}'.format(code3))
+		# print('KT1: {}'.format(self.kt1))
 		self.sendDeviceData(str(self.kt1), conn) #Send device data to server.
 		self.kt2 = self.gen_kt2() #Generate temporary key: kt2.
+		# print('KT2: {}'.format(self.kt2))
 		self.receiveServerData(conn) #Receive server random number.
 		self.printData() #Just print all data.
 		self.genmaster_key() #Generate master key.
@@ -132,8 +148,7 @@ class Client(Communication):
 		self.receiveServerProofkm(conn)
 		self.authenticationKey = self.master_key
 		self.otpStatus = 0
-		self.my_id = pickle.loads(conn.recv(1024)) #Receive 'id' from server.
-		
+		self.my_id = conn.recv(1024).decode() #Receive 'id' from server.
 		print('ID: {}'.format(self.my_id))
 		print("Closing connection")
 	
@@ -169,8 +184,9 @@ class Client(Communication):
 		'''
 		Function that generate master key.
 		'''
-		self.master_key = str(self.kt1) + str(self.kt2) + str(self.app_rand1) + str(self.server_rand) + str(self.imei)
-		self.master_key = hashlib.sha256(self.master_key.encode()).hexdigest()
+		self.master_key = self.kt1 + self.kt2 + self.app_rand1 + self.server_rand + self.imei
+		self.master_key = hashlib.sha256(self.master_key.encode())
+		self.master_key = str(self.master_key.hexdigest())
 		print("MASTER KEY: " + self.master_key)
 
 	def encrypt(self,key, source, encode=True):
@@ -218,17 +234,19 @@ class Client(Communication):
 		serverData = pickle.loads(conn.recv(1024)) #Receive device data.
 		decrypted = self.decrypt(bytes(self.kt2, "utf-8"), serverData, True)
 		decryptedData = str(decrypted, "utf-8")
+		print('Decrypted: {}'.format(decryptedData))
 		self.server_rand = decryptedData
 
 	def sendDeviceData(self, kt1, conn):
 		'''
 		Function that send device data.
 		'''
-		self.imei = randint(100000000,999999999) #Generate random imei.
-		self.app_rand1 = randint(100000000,999999999) #Generate application random number.
-		self.deviceData = str(self.imei) + "|" +str(self.app_rand1) #Concatenate device data.
+		self.imei = str(randint(100000000,999999999)) #Generate random imei.
+		self.app_rand1 = str(randint(100000000,999999999)) #Generate application random number.
+		self.deviceData = self.imei + "|" + self.app_rand1 #Concatenate device data.
+		print('device data {}  {}'.format(self.imei, self.app_rand1))
 		encrypted = self.encrypt(bytes(kt1, "utf-8"), bytes(self.deviceData,"utf-8"), True) #Encrypt data.
-		conn.send(pickle.dumps(encrypted)) #Send encrypted data to server.
+		conn.sendall(pickle.dumps(encrypted)) #Send encrypted data to server.
 		
 	def sendProofkm(self, conn):
 		'''
@@ -236,16 +254,20 @@ class Client(Communication):
 		'''
 		self.randNumProof = str(randint(10000000, 99999999)) #Generate another random number.
 		encryptedRanNum = self.encrypt(bytes(self.master_key, "utf-8"), bytes(self.randNumProof, "utf-8")) #Encrypt random number.
-		hashRanNum = hashlib.sha256(encryptedRanNum.encode()).hexdigest() #Generate the number hash.
-		conn.send(pickle.dumps(encryptedRanNum)) #Send encrypted number.
-		conn.send(pickle.dumps(hashRanNum)) #Send number hash.
+		hashRanNum = hashlib.sha256(encryptedRanNum.encode())
+		hashRanNum = str(hashRanNum.hexdigest()) #Generate the number hash.
+		conn.sendall(bytes(encryptedRanNum.encode()))
+		conn.sendall(bytes(hashRanNum.encode()))
+		# conn.sendall(pickle.dumps(encryptedRanNum)) #Send encrypted number.
+		# conn.sendall(pickle.dumps(hashRanNum)) #Send number hash.
 
 	def receiveServerProofkm(self,conn):
 		'''
 		Function that receive data to proof that kt2 match.
 		'''
-		serverHash = pickle.loads(conn.recv(1024)) #Receive server hash.
-		hashProof = hashlib.sha256(str(int(self.randNumProof) + 1).encode()).hexdigest() #Generate own hash to compare.
+		serverHash = conn.recv(1024).decode() #Receive server hash.
+		hashProof = hashlib.sha256(str(int(self.randNumProof) + 1).encode()) #Generate own hash to compare.
+		hashProof = str(hashProof.hexdigest())
 		try:
 			if serverHash == hashProof: #Test if it matchs.
 				print("MASTER KEY AUTHENTICATED")
@@ -281,7 +303,10 @@ class Client(Communication):
 			ini = time.time()
 			t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			t.connect((self.tip, self.tport))
-			for i in range(0,10): #Just to test some authentication requests.
+			t2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			t2.connect(('127.0.0.1', 9090))
+			for i in range(0,100): #Just to test some authentication requests.
+				# t.connect((self.tip, self.tport))
 
 				# print("Sending: 'Authentication request")
 				self.requestAuthentication(t) #Call Authentication request function.
@@ -289,6 +314,16 @@ class Client(Communication):
 				# print("Connection Closed!2")
 				# print("#####################\n")
 			t.close()
+
+			for i in range(0,3): #Just to test some authentication requests.
+				# t.connect((self.tip, self.tport))
+
+				# print("Sending: 'Authentication request")
+				self.requestAuthentication(t2) #Call Authentication request function.
+
+				# print("Connection Closed!2")
+				# print("#####################\n")
+			t2.close()
 
 			fim = time.time()
 			print('Tempo:{}'.format(fim-ini))
