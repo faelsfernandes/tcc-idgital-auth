@@ -62,90 +62,96 @@ class Turnstile:
 		return code
 
 	def requestAuth(self, sconn, cconn):
-		cli_hash = cconn.recv(512).decode()	
-		message = cconn.recv(512).decode()
-		# message = cconn.recv(1024)
-		# cli_hash = cconn.recv(1024)
-		message = message + '.png'
-		# print(message)
-		qrCode = decode(Image.open(message))
+		try:
+			cli_hash = cconn.recv(512).decode()	
+			message = cconn.recv(512).decode()
+			# message = cconn.recv(1024)
+			# cli_hash = cconn.recv(1024)
+			message = message + '.png'
+			# print(message)
+			qrCode = decode(Image.open(message))
 
-		# print(type(str(qrCode[0].data)))
-		qrCodeClean = str(qrCode[0].data).split("b\'")[1]
-		qrCodeClean = str(qrCodeClean).split('\'')[0]
-		identification, cli_otp = qrCodeClean.split("|")
-		# print(type(identification))
-		# identification = int(float(identification))
-		# os.remove('./{}'.format(message))
-		cli_otp = cli_otp.split("\'")[0]
-		new_code = ''
-		my_hash = ''
-		user_founded = False
+			# print(type(str(qrCode[0].data)))
+			qrCodeClean = str(qrCode[0].data).split("b\'")[1]
+			qrCodeClean = str(qrCodeClean).split('\'')[0]
+			identification, cli_otp = qrCodeClean.split("|")
+			# print(type(identification))
+			# identification = int(float(identification))
+			os.remove('./{}'.format(message))
+			cli_otp = cli_otp.split("\'")[0]
+			new_code = ''
+			my_hash = ''
+			user_founded = False
 
-		ini = time.time()
-		for key, user in self.user_list.items():
-			if identification == str(key):
-				print('JA TEM AAAAA')
-				new_code = ''
-				for i in range(int(user[1]), int(cli_otp)):
-					new_code = hashlib.sha256(user[0].encode())
-					new_code = str(new_code.hexdigest())
-					last_code = new_code
-					print('CALCULANDO I: {}'.format(str(i)))
-				my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
-				my_hash = str(my_hash.hexdigest())
-				user[0] = new_code
-				user[1] = cli_otp
-				user_founded = True
-				# print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
-				break
+			ini = time.time()
+			for key, user in self.user_list.items():
+				if identification == str(key):
+					# print('JA TEM AAAAA')
+					new_code = ''
+					for i in range(int(user[1]), int(cli_otp)):
+						new_code = hashlib.sha256(user[0].encode())
+						new_code = str(new_code.hexdigest())
+						user[0] = new_code
+						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
+						# print('CALCULANDO I: {}'.format(str(i)))
+					my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
+					my_hash = str(my_hash.hexdigest())
+					user[0] = new_code
+					user[1] = cli_otp
+					user_founded = True
+					print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
+					break
 
-		if user_founded == False:
-			sconn.sendall(b'AuthUser')
-			sconn.sendall(bytes(str(identification).encode()))
+			if user_founded == False:
+				sconn.sendall(b'AuthUser')
+				sconn.sendall(bytes(str(identification).encode()))
 
-			response = sconn.recv(1024)
+				response = sconn.recv(1024)
 
-			if response == b'Yes':
-				print('NÃO TINHAAA')
-				new_code = ''
-				last_code = sconn.recv(1024).decode()
-				server_otp = sconn.recv(1024).decode()
-				# idt = int(identification)
-				for i in range(int(server_otp), int(cli_otp)):
-					print('SERVEROTP: {}'.format(str(server_otp)))
-					new_code = hashlib.sha256(last_code.encode())
-					new_code = str(new_code.hexdigest())
-					last_code = new_code
-					print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
-				my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
-				my_hash = str(my_hash.hexdigest())
-				# print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
-				# print('AAAAA')
-				# cli_otp = cli_otp
-				self.user_list[identification] = [new_code, cli_otp]
-				print(self.user_list)
+				if response == b'Yes':
+					# print('NÃO TINHAAA')
+					new_code = ''
+					last_code = sconn.recv(1024).decode()
+					server_otp = sconn.recv(1024).decode()
+					# idt = int(identification)
+					for i in range(int(server_otp), int(cli_otp)):
+						print('SERVEROTP: {}'.format(str(server_otp)))
+						new_code = hashlib.sha256(last_code.encode())
+						new_code = str(new_code.hexdigest())
+						last_code = new_code
+						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
+					my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
+					my_hash = str(my_hash.hexdigest())
+					print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
+					# print('AAAAA')
+					# cli_otp = cli_otp
+					self.user_list[identification] = [new_code, cli_otp]
+					# print(self.user_list)
 
+				else:
+					print('User does not exists!')
+
+			if my_hash == cli_hash:
+				print('Authentication successful!\n')
+				# print(my_hash)
+				# sconn.sendall(pickle.dumps(new_code))
+				cconn.sendall(b'Auth')
+			# pass
 			else:
-				print('User does not exists!')
+				print('Failed authentication')
+				cconn.sendall(b'nAuth')
+			fim = time.time()
 
-		if my_hash == cli_hash:
-			# print('Authentication successful!\n')
-			# print(my_hash)
-			# sconn.sendall(pickle.dumps(new_code))
-			cconn.sendall(b'Auth')
-		# pass
-		else:
-			print('Failed authentication')
-			cconn.sendall(b'nAuth')
-		fim = time.time()
+			self.list_time.append(float(fim-ini))
 
-		self.list_time.append(float(fim-ini))
+			value = 0
+			for i in self.list_time:
+				value = value + i
+			print('time: {}'.format(value))
+		except:
+			pass
 
-		value = 0
-		for i in self.list_time:
-			value = value + i
-		print('time: {}'.format(value))
+	
 
 
 

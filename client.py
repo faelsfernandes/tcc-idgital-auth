@@ -71,13 +71,19 @@ class Client(Communication):
 			self.authenticationKey = hashlib.sha256(self.master_key.encode())
 			self.authenticationKey = str(self.authenticationKey)
 			self.authenticationKey = str(self.authenticationKey.hexdigest())
-			self.otpStatus = 1
+			self.otpStatus = int(self.otpStatus) + 1
 			# print('OTPSTATUS: {}'.format(self.otpStatus))
+			print('KEY: {}'.format(self.authenticationKey))
 		else:
-			self.authenticationKey = hashlib.sha256(self.authenticationKey.encode())
-			self.authenticationKey = str(self.authenticationKey.hexdigest())
-			self.otpStatus = int(self.otpStatus)+1
+			new_value = int(self.otpStatus) + 1
+			for i in range(int(self.otpStatus), int(new_value)):
+				new_code = hashlib.sha256(self.authenticationKey.encode())
+				new_code = str(new_code.hexdigest())
+				self.authenticationKey = new_code
+			self.otpStatus = new_value
+			print('KEY: {}'.format(self.authenticationKey))
 			# print('OTPSTATUS: {}'.format(self.otpStatus))
+			
 		message = str(self.my_id) + '|' + str(self.otpStatus)
 		# print('MESSAGEEE: {}\nAUTH: {}\n'.format(message, self.authenticationKey))			
 		h = hmac.new(pickle.dumps(self.authenticationKey), pickle.dumps(message), hashlib.sha256)
@@ -305,7 +311,7 @@ class Client(Communication):
 			t.connect((self.tip, self.tport))
 			t2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			t2.connect(('127.0.0.1', 9090))
-			for i in range(0,100): #Just to test some authentication requests.
+			for i in range(0,1): #Just to test some authentication requests.
 				# t.connect((self.tip, self.tport))
 
 				# print("Sending: 'Authentication request")
@@ -315,14 +321,14 @@ class Client(Communication):
 				# print("#####################\n")
 			t.close()
 
-			for i in range(0,3): #Just to test some authentication requests.
+			for i in range(0,2): #Just to test some authentication requests.
 				# t.connect((self.tip, self.tport))
 
 				# print("Sending: 'Authentication request")
 				self.requestAuthentication(t2) #Call Authentication request function.
 
-				# print("Connection Closed!2")
-				# print("#####################\n")
+				print("Connection Closed!2")
+				print("#####################\n")
 			t2.close()
 
 			fim = time.time()
