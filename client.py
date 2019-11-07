@@ -75,7 +75,7 @@ class Client(Communication):
 			# print('OTPSTATUS: {}'.format(self.otpStatus))
 			print('KEY: {}'.format(self.authenticationKey))
 		else:
-			new_value = int(self.otpStatus) + 1
+			new_value = int(self.otpStatus) + 10000
 			for i in range(int(self.otpStatus), int(new_value)):
 				new_code = hashlib.sha256(self.authenticationKey.encode())
 				new_code = str(new_code.hexdigest())
@@ -99,15 +99,14 @@ class Client(Communication):
 		for i in self.list_time:
 			value = value + i
 		print('time: {}'.format(value))
-
+		print('HASH: {}\n'.format(h))			
 		response = conn.recv(1024)
-		# print('\nAUTH: {}\n'.format(h))			
 
 		if response == b'Auth':
-			print('AuthenticateD!!!')
+			print('Authenticated!!!')
 			pass
 		else:
-			print('DEu erro')
+			print('Not authenticated!')
 		# pass
 
 
@@ -311,7 +310,7 @@ class Client(Communication):
 			t.connect((self.tip, self.tport))
 			t2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			t2.connect(('127.0.0.1', 9090))
-			for i in range(0,1): #Just to test some authentication requests.
+			for i in range(0,2): #Just to test some authentication requests.
 				# t.connect((self.tip, self.tport))
 
 				# print("Sending: 'Authentication request")
@@ -321,7 +320,7 @@ class Client(Communication):
 				# print("#####################\n")
 			t.close()
 
-			for i in range(0,2): #Just to test some authentication requests.
+			for i in range(0,1): #Just to test some authentication requests.
 				# t.connect((self.tip, self.tport))
 
 				# print("Sending: 'Authentication request")

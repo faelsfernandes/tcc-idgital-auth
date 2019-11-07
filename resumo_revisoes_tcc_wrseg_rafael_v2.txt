@@ -1,0 +1,117 @@
+Texto TCC:
+- Consideraram usar biometria?
+R: O objetivo da SAAS não é prover autenticação de multiplos fatores é, na verdade, apenas oferecer mais robustez ao utilizar smartphones para realizar identificação e autenticação. Adicionar fatores como biometria limitaria a solução a ser utilizada apenas por dispositivos que possuíssem esta tecnologia e também implicaria em questões de clonagem de digitais e ataques que ocorrem comumentes em sistemas biométricos.
+
+- Existem ataques no TLS. Qual versão?
+R: Tem no TCC do Bisso uma série de ataques. Trazer referências e comentar no meu TCC.
+
+- Se irão criar um solução de acesso, fazer compatível com serviços de diretórios como LDAP
+R: Não entendi????
+
+- Falta da especificação de requisitos
+R: Não sei como fazer exatamente.
+Requisitos funcionais e não funcionais. Pressupostos: confiar no dispositivo, algos de cifra,
+
+- Ataques de saturação?
+R: As tarefas de gerar e realizar a verificação através dos OTAC são simples e não gastam tanto poder de processamento (é basicamente cálculo de hash). Os problemas de saturação poderiam ocorrer como em qualquer aplicação cliente/servidor, ou seja, não há influência da solução neste problema. Realização de teste. Simular o DoS.
+Limitar o número de autenticações por segundo. Criar uma variável genérica e incluir no protocolo de autenticação (OTAC).
+
+- Falar dos pontos fracos
+R: Comprometer totalmente o dispositivo. Regerar a chave mestra, reinicializando o OTAC. Simular qual o custo de associação e reassociação. 
+
+- Validação do protocolo?
+R: A validação através de experimentos será realizada. A verificação formal foi realizada com scyther.
+
+- Identificação vs. Autenticação? Um não é um subconjunto do outro?
+R: Autenticação é o ato de verificar se, por exemplo, o ID e a senha do usuário são válidos para entrar em um sistema. O ID é o que identifica o usuário dentro da aplicação. As duas trabalham juntas, mas são diferentes.
+
+- Discussão sobre critério de escolha de dados do dispositivo para autenticação.
+R: Foi escolhido o IMEI, pois é um identificador que todo dispositivo possui e independe se o dispositivo possui alguma linha telefônica vinculada (necessário para utilizar pin). Depender de identificadores como IMSI (utilizados apenas para dispositivos que possuem linha telefônica internacional) tornaria a utilização restrita a apenas um conjunto de dispositivos.
+
+- Não ficou clara a diferença entre o meu trabalho e os demais.
+R: A SAAS promove autenticação de um único fator robusta com os OTACs. Estes são diferentes de códigos gerados por aplicações da Google por não terem dependência temporal e podem ser utilizados offline. Ademais, o OTAC não é como um OTP. OTP é uma senha que o usuário ou aplicação possui e, geralmente, é transmitida através de um canal de comunicação. O OTAC é utilizado como chave para um HMAC e não corre o risco de ser interceptado, pois não é transmitido através dos canais de comunicação.
+
+- Falar sobre falhas, problemas, pontos fracos, planos de teste e ambientes de testes
+R: Falta identificar esses problemas. Por ora penso apenas em comprometer totalmente o dispositivo. Teste da catraca e servidor.
+
+Apresentação TCC:
+- Vender melhor o trabalho como uma solução de identificação e autenticação 
+R: Corrigir ao ensaiar para apresentação.
+
+- Dar nome aos protocolos
+R: Identificação e autenticação. Nomes utilizados na apresentação do WRSeg.
+
+- Não comenta os trabalhos todos trabalhos relacionados. [Eldefrawy et al. 2011] e [Aloul et al. 2009] apareciam só na tabela
+R: Comentar...
+
+- Pode ser offline... é escalável?
+R: Pode ser utilizado offline por não tem dependência temporal e uma cache de dados pode ser armazenada em um disositivo 'autenticador' para realizar a autenticação de usuários (e.g., controle de acesso). Pode ser escalável, pois não necessita de grande poder de processamento para o cálculo e verificação dos OTACs. Simular escalabilidade. 10, 100, 1000... Falar de armazenar cache (simulação da catraca), ver quanto de memória tem uma catraca. Caso offline: Atualizar todas as catracas, gerando novos OTACs. Parar a catraca após 2 voltas.
+Olhar catracas reais e ver a capacidade de processamento/armazenamento volátil (RAM) e não volátil (e.g. SSD).
+
+- Texto certo fala errada: cifrado/encriptado
+R: Vou falar certo.
+
+Texto WRSeg:
+- Deixar claro o que a proposta trás de inovação (respondido no rebutall)
+R: A SAAS promove autenticação de um único fator robusta com os OTACs. Estes são diferentes de códigos gerados por aplicações da Google por não terem dependência temporal e podem ser utilizados offline. Ademais, o OTAC não é como um OTP. OTP é uma senha que o usuário ou aplicação possui e, geralmente, é transmitida através de um canal de comunicação. O OTAC é utilizado como chave para um HMAC e não corre o risco de ser interceptado, pois não é transmitido através dos canais de comunicação.
+
+- A clonagem de um dispositivo comprometeria a segurança da solução SAAS proposta? Se sim, como e quais seriam as medidas de cautela e remediações necessárias?
+R: A clonagem é identificada pela solução de forma automática, pois não é possível conectar mais de um dispositivo. Isso é identificado através do fator de conhecimento (login/senha).
+
+- Escrever por extenso todas as siglas assim que aparecerem pela primeira vez
+R: Ok.
+
+- Ressaltar a diferença entre OTP e OTAC
+R: OTP é uma senha que o usuário ou aplicação possui e, geralmente, é transmitida através de um canal de comunicação. O OTAC é utilizado como chave para um HMAC e não corre o risco de ser interceptado, pois não é transmitido através dos canais de comunicação.
+
+Apresentação WRSeg:
+- Charles perguntou sobre a nova versão do protocolo ????????????
+R: Eu entendi que ele quis saber do andamento, se vai mudar algo no protocolo (e.g., retirar a necessidade do e-mail no protocolo identificação e vinculação), etc. Falei que questões, como a necessidade de e-mail, seriam pensadas com o intuito de melhorar a usabilidade.
+
+- Charles fez a mesma pergunta sobre escalabilidade ????????????
+R: Fez a mesma pergunta de novo. 
+
+- Tiago perguntou se conversamos com as entidades e se pretendíamos aplicar de forma prática a solução (e.g., SESC, UNI,...)
+R: Não, mas serão simulados a catraca (SESC) e um cliente/servidor genérico.
+
+Tabela ou gráfico de risco: Ao não usar e-mail, sms, tls...Ver a fórmula de representar a curva gráfica de risco x canais de comunicação
+.
+
+-------------------------------------
+Código catraca:
+
+1 - Usar SSL só no registro, não na autenticação. Sistema-Catraca, Sistema-Usuário
+2 - Autenticação é com OTAC enviando QR Code sobre socket simples. 
+3 - Dá pra colocar o SMS em um novo canal (novo socket entre Usuário/Catraca e Sistema)
+4 - Modelar latência de registro de acordo com a quantidade de canais de comunicação
+5 - Cria um cenario c 3 catracas. Calcula o tempo q a catraca leva p avancar e chegar ao indice atual.
+5.1 - cenário 1: calcula diferença do índice e autentica;
+5.2 - cenário 2: calcula a diferença e não bate (precisa dar voltas - não precisa simular, basta calcular);
+5.3 - precisa medir bem o tempo que leva para calcular um OTAC;
+5.4 - o Usuário acessa pseudo-aleatoriamente as 3 Catracas e se autentica nela.
+5.4.1 - conta quantas vezes foi autenticado em cada Catraca.
+6 - Medir a latência de registro entre Usuário-Sistema.
+
+Observações:
+ - QRCode gasta maior tempo do código
+ - Catraca leva 0.2s para alcançar índice 10000
+ - 100 autenticações em 0.07s
+
+
+-------------------------------------
+Comentários do paper ReABTIC:
+* no TCC, explicar em detalhes por que a chave $K_c$ é (imediatamente) evoluída para o próximo valor. discutir os aspectos técnicos.
+* no TCC, discutir a sincronização dos índices. pode ser utilizando um protótipo que simula N catracas, por exemplo. falar dos aspectos teóricos e práticos da sincronização dos índices.
+* há funções de hash comprimidas que podem ser utilizadas no OTAC?
+* qual o tamanho mínimo de um OTAC? 
+* e os índices iA e iS, como definir os limites? quais as implicações dos limites em diferentes cenários práticos de aplicação da solução? exemplo: (1) catracas; (2) aplicações cliente/servidor. são dois exemplos extremos, que podem ter demandas diferentes. no 1o caso, são poucas autenticações. já no 2o caso podem ser milhares de autenticações por segundo.
+* no TCC, falar mais sobre exemplos de catracas que possuem leitores de QR Code ou leitores RFID. eventualmente, dar exemplos comerciais e discutir sobre os aspectos técnicos dessas catracas.
+* discutir melhor no TCC a parte do "eficiente e pode ser realizado totalmente off-line uma vez que não há nenhuma dependência de hora ou sincronização de relógios entre os dispositivos.”. isto precisa ser melhor discutido/explicado.
+* levar isto em conta para o TCC: %ROGER: seria muito bom colocar alguma referencia de vazamento de digitais e faces… % https://www.technologyreview.com/f/614163/data-leak-exposes-unchangeable-biometric-data-of-over-1-million-people/ % https://www.vpnmentor.com/blog/report-biostar2-leak/ %nosso paper sobre leaks de dados.
+* no Algoritmo 1, assim como há um tipo de dados Code, criar outros tipos de dados. exemplo: Random, IMEI, etc. com isso, o código fica mais inteligível. corrigir/melhorar estas coisas no TCC.
+* melhorar a formatação dos algoritmos. olhe como ficou a linha 26, que encostava na linha 51. observem SEMPRE esses detalhes e procurem soluções para o problema. se não encontrarem, perguntem. mas, nunca deixem de qualquer jeito. idem linha 30.
+* observar TODOS os detalhes nos algoritmos. exemplo: em alguns lugares há espaços em branco antes do “)”, em outros não há. padronizar e deixar o algoritmo bem apresentado. 
+* na Figura 1, deveria ser S3AS agora,  não? ainda consta SAAS.
+* não é melhor OTACP ao invés de OTACG? OTAC Protocol (OTACP). se sim, atualizar algoritmo e figura da Scyther.
+* no TCC, discutir isto daqui: "Assumindo que o acesso ao \textit{smartphone} é suficientemente seguro, o uso da identidade do usuário estará protegida mesmo em casos de perda ou roubo do dispositivo móvel."
+* reduzi a conclusão. acho que ficou melhor.

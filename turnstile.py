@@ -77,7 +77,7 @@ class Turnstile:
 			identification, cli_otp = qrCodeClean.split("|")
 			# print(type(identification))
 			# identification = int(float(identification))
-			os.remove('./{}'.format(message))
+			# os.remove('./{}'.format(message))
 			cli_otp = cli_otp.split("\'")[0]
 			new_code = ''
 			my_hash = ''
