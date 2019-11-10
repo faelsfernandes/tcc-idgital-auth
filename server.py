@@ -1,7 +1,3 @@
-from PIL import Image
-from pyzbar.pyzbar import decode
-import pyqrcode
-import qrtools
 import socket
 import ssl
 import re

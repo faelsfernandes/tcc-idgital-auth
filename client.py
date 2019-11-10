@@ -52,7 +52,7 @@ class Client(Communication):
 	authenticationKey = ''
 	master_key = ''
 	my_id = ''
-
+	auth_limit = 10000
 	list_time = list()
 
 	def __init__(self, sip, sport, tip, tport):
@@ -75,11 +75,19 @@ class Client(Communication):
 			# print('OTPSTATUS: {}'.format(self.otpStatus))
 			print('KEY: {}'.format(self.authenticationKey))
 		else:
-			new_value = int(self.otpStatus) + 10000
-			for i in range(int(self.otpStatus), int(new_value)):
-				new_code = hashlib.sha256(self.authenticationKey.encode())
-				new_code = str(new_code.hexdigest())
-				self.authenticationKey = new_code
+			new_value = int(self.otpStatus) + 1
+			if new_value > self.auth_limit:
+				# new_value = 1
+				for i in range(self.otpStatus, new_value):
+					new_code = hashlib.sha256(self.authenticationKey.encode())
+					new_code = str(new_code.hexdigest())
+					self.authenticationKey = new_code
+				new_value = new_value - self.auth_limit
+			else:
+				for i in range(int(self.otpStatus), int(new_value)):
+					new_code = hashlib.sha256(self.authenticationKey.encode())
+					new_code = str(new_code.hexdigest())
+					self.authenticationKey = new_code
 			self.otpStatus = new_value
 			print('KEY: {}'.format(self.authenticationKey))
 			# print('OTPSTATUS: {}'.format(self.otpStatus))
@@ -108,8 +116,6 @@ class Client(Communication):
 		else:
 			print('Not authenticated!')
 		# pass
-
-
 
 	def genAuthenticationKey(self, last_otp, new_otp, key):
 		for i in range(int(last_otp), int(new_otp)):
@@ -306,32 +312,39 @@ class Client(Communication):
 
 		try:
 			ini = time.time()
-			t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)				
 			t.connect((self.tip, self.tport))
 			t2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			t2.connect(('127.0.0.1', 9090))
-			for i in range(0,2): #Just to test some authentication requests.
-				# t.connect((self.tip, self.tport))
 
-				# print("Sending: 'Authentication request")
+
+			for i in range(0,10002): #Just to test some authentication requests.
+				print(i)
 				self.requestAuthentication(t) #Call Authentication request function.
+				# t.close()
+				# time.sleep(0.01)
+			time.sleep(1)
+			for i in range(0,3): #Just to test some authentication requests.
 
-				# print("Connection Closed!2")
-				# print("#####################\n")
-			t.close()
-
-			for i in range(0,1): #Just to test some authentication requests.
-				# t.connect((self.tip, self.tport))
-
-				# print("Sending: 'Authentication request")
 				self.requestAuthentication(t2) #Call Authentication request function.
-
-				print("Connection Closed!2")
-				print("#####################\n")
-			t2.close()
+			# 	t2.close()
+			time.sleep(1)
+			# for i in range(0,4): #Just to test some authentication requests.
+			# 	print(i)
+				
+			# 	self.requestAuthentication(t) #Call Authentication request function.
+				# t.close()
+				# time.sleep(0.01)
+			# for i in range(0,1): #Just to test some authentication requests.
+			# 	t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)				
+			# 	t.connect((self.tip, self.tport))
+	
+			# 	self.requestAuthentication(t) #Call Authentication request function.
+			# 	t.close()
+				
 
 			fim = time.time()
-			print('Tempo:{}'.format(fim-ini))
+			# print('Tempo:{}'.format(fim-ini))
 		except:
 			print("Unable to authenticate")
 			pass
