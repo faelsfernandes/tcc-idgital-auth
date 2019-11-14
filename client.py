@@ -26,6 +26,8 @@ def parseArguments():
 	parser.add_argument('--tip', default='127.0.0.1', type=str, help='Define turnstile ip')
 	parser.add_argument('--tport', type=int, default=5569, help='Define turnstile port')
 	parser.add_argument('--auth', type=int, default=5567, help='Amount of authentications')
+	parser.add_argument('--cicle', type=int, default=2, help='Define number of cicles')
+	parser.add_argument('--index', type=int, default=10, help='Define authentication index limit')
 
 	return parser.parse_args()
 
@@ -52,14 +54,17 @@ class Client(Communication):
 	authenticationKey = ''
 	master_key = ''
 	my_id = ''
-	auth_limit = 10000
+	auth_limit = ''
+	cicle_limit = ''
 	list_time = list()
 
-	def __init__(self, sip, sport, tip, tport):
+	def __init__(self, sip, sport, tip, tport, auth_limit, cicle_limit):
 		self.sip = sip
 		self.sport = sport
 		self.tip = tip
 		self.tport = tport
+		self.auth_limit = auth_limit
+		self.cicle_limit = cicle_limit
 
 	def requestAuthentication(self, conn):
 		'''
@@ -75,14 +80,21 @@ class Client(Communication):
 			# print('OTPSTATUS: {}'.format(self.otpStatus))
 			print('KEY: {}'.format(self.authenticationKey))
 		else:
-			new_value = int(self.otpStatus) + 1
+			new_value = int(self.otpStatus) + 30000
+			print(new_value)
+
 			if new_value > self.auth_limit:
-				# new_value = 1
 				for i in range(self.otpStatus, new_value):
 					new_code = hashlib.sha256(self.authenticationKey.encode())
 					new_code = str(new_code.hexdigest())
 					self.authenticationKey = new_code
-				new_value = new_value - self.auth_limit
+				new_value = new_value - (int(new_value/self.auth_limit))*(self.auth_limit)
+
+				# for i in range(self.otpStatus, new_value):
+				# 	new_code = hashlib.sha256(self.authenticationKey.encode())
+				# 	new_code = str(new_code.hexdigest())
+				# 	self.authenticationKey = new_code
+				# new_value = new_value - self.auth_limit
 			else:
 				for i in range(int(self.otpStatus), int(new_value)):
 					new_code = hashlib.sha256(self.authenticationKey.encode())
@@ -314,20 +326,25 @@ class Client(Communication):
 			ini = time.time()
 			t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)				
 			t.connect((self.tip, self.tport))
-			t2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			t2.connect(('127.0.0.1', 9090))
+			# t2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# t2.connect(('127.0.0.1', 9090))
+
+			# t2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# t2.connect(('127.0.0.1', 9090))
 
 
-			for i in range(0,10002): #Just to test some authentication requests.
+			for i in range(0,10000): #Just to test some authentication requests.
 				print(i)
 				self.requestAuthentication(t) #Call Authentication request function.
 				# t.close()
 				# time.sleep(0.01)
+			t.close()
 			time.sleep(1)
-			for i in range(0,3): #Just to test some authentication requests.
+			# t2.connect(('127.0.0.1', 9090))
+			# for i in range(0,1): #Just to test some authentication requests.
 
-				self.requestAuthentication(t2) #Call Authentication request function.
-			# 	t2.close()
+			# 	self.requestAuthentication(t2) #Call Authentication request function.
+			# t2.close()
 			time.sleep(1)
 			# for i in range(0,4): #Just to test some authentication requests.
 			# 	print(i)
@@ -351,5 +368,5 @@ class Client(Communication):
 
 if __name__ == '__main__':
 	args = parseArguments()
-	client = Client(args.sip, int(args.sport), args.tip, int(args.tport))
+	client = Client(args.sip, int(args.sport), args.tip, int(args.tport), args.index, args.cicle)
 	client.listen()

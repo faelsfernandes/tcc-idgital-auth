@@ -26,6 +26,8 @@ def parseArguments():
 	parser.add_argument('--sport', type=int, default=5567, help='Define server port')
 	parser.add_argument('--tip', default='127.0.0.1', type=str, help='Define turnstile ip')
 	parser.add_argument('--tport', type=int, default=5569, help='Define turnstile port')
+	parser.add_argument('--cicle', type=int, default=2, help='Define number of cicles')
+	parser.add_argument('--index', type=int, default=10, help='Define authentication index limit')
 	return parser.parse_args()
 
 class Turnstile:
@@ -44,13 +46,16 @@ class Turnstile:
 
 	user_list = {}
 	list_time = list()
-	auth_limit = 10000
+	auth_limit = ''
+	cicle_limit = ''
 
-	def __init__(self, sip, sport, tip, tport):
+	def __init__(self, sip, sport, tip, tport, auth_limit, cicle_limit):
 		self.sip = sip
 		self.sport = sport
 		self.tip = tip
 		self.tport = tport	
+		self.auth_limit = auth_limit
+		self.cicle_limit = cicle_limit
 
 	def genAuthenticationKey(self, cli_otp, server_otp, code):
 		# for i in range(int(server_otp),(int(cli_otp) - int(server_otp))):
@@ -86,16 +91,16 @@ class Turnstile:
 		for key, user in self.user_list.items():
 			if identification == str(key):
 				new_code = ''
-				print('Client ID: {}'.format(identification))
-				print('Client OTP: {}'.format(cli_otp))
-				print('SERVEROTP: {}'.format(user[1]))
+				# print('Client ID: {}'.format(identification))
+				# print('Client OTP: {}'.format(cli_otp))
+				# print('SERVEROTP: {}'.format(user[1]))
 				if int(cli_otp) <= int(user[1]):
 					for i in range(0, int(self.auth_limit-int(user[1]) + int(cli_otp))):		
 						new_code = hashlib.sha256(user[0].encode())
 						new_code = str(new_code.hexdigest())
 						user[0] = new_code
 						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
-						print('Calculanting2: {}'.format(str(i+1)))
+						# print('Calculanting2: {}'.format(str(i+1)))
 						# print('CALCULANDO I: {}'.format(str(i)))
 				else:
 					for i in range(int(user[1]), int(cli_otp)):
@@ -103,27 +108,32 @@ class Turnstile:
 						new_code = str(new_code.hexdigest())
 						user[0] = new_code
 						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
-						print('Calculanting: {}'.format(str(i+1)))
+						# print('Calculanting: {}'.format(str(i+1)))
 						# print('CALCULANDO I: {}'.format(str(i)))
 				my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
 				my_hash = str(my_hash.hexdigest())
 				user[0] = new_code
 				user[1] = cli_otp
 				user_founded = True
-				print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
-
+				# print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
 				if my_hash != cli_hash:
-					for i in range(0, self.auth_limit):
-						new_code = hashlib.sha256(user[0].encode())
-						new_code = str(new_code.hexdigest())
+					for cicle in range (0, self.cicle_limit):
+						for i in range(0, self.auth_limit):
+							new_code = hashlib.sha256(user[0].encode())
+							new_code = str(new_code.hexdigest())
+							user[0] = new_code
+							# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
+							# print('Calculanting: {}'.format(str(i+1)))
+							# print('CALCULANDO I: {}'.format(str(i)))
+						my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
+						my_hash = str(my_hash.hexdigest())
 						user[0] = new_code
-						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
-						print('Calculanting: {}'.format(str(i+1)))
-						# print('CALCULANDO I: {}'.format(str(i)))
-					my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
-					my_hash = str(my_hash.hexdigest())
-					user[0] = new_code
-					user[1] = cli_otp
+						user[1] = cli_otp
+						# print('Cicle number:{}'.format(cicle))
+						if my_hash == cli_hash:
+							# print('Authentication successful!\n')
+							# print('HASH {}'.format(my_hash))
+							break
 				break
 
 		if user_founded == False:
@@ -138,16 +148,16 @@ class Turnstile:
 				last_code = sconn.recv(1024).decode()
 				server_otp = sconn.recv(1024).decode()
 				# idt = int(identification)
-				print('Client ID: {}'.format(identification))
-				print('Client OTP: {}'.format(cli_otp))
-				print('SERVEROTP: {}'.format(server_otp))
+				# print('Client ID: {}'.format(identification))
+				# print('Client OTP: {}'.format(cli_otp))
+				# print('SERVEROTP: {}'.format(server_otp))
 				if int(cli_otp) <= int(server_otp):
 					for i in range(0, int(self.auth_limit-int(server_otp) + int(cli_otp))):
 						# print('SERVEROTP: {}'.format(str(i)))
 						new_code = hashlib.sha256(last_code.encode())
 						new_code = str(new_code.hexdigest())
 						last_code = new_code
-						print('Calculanting: {}'.format(str(i+1)))
+						# print('Calculanting: {}'.format(str(i+1)))
 						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))	
 				else:
 					for i in range(int(server_otp), int(cli_otp)):
@@ -155,36 +165,44 @@ class Turnstile:
 						new_code = hashlib.sha256(last_code.encode())
 						new_code = str(new_code.hexdigest())
 						last_code = new_code
-						print('Calculanting: {}'.format(str(i+1)))
+						# print('Calculanting: {}'.format(str(i+1)))
 						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
 				my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
 				my_hash = str(my_hash.hexdigest())
-				print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
+				# print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
 				self.user_list[identification] = [new_code, cli_otp]
 				if my_hash != cli_hash:
-					for i in range(0, self.auth_limit):
-						# print('SERVEROTP: {}'.format(str(i)))
-						new_code = hashlib.sha256(last_code.encode())
-						new_code = str(new_code.hexdigest())
-						last_code = new_code
-						print('Calculanting: {}'.format(str(i+1)))
-						# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
-					my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
-					my_hash = str(my_hash.hexdigest())
-					print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
-					self.user_list[identification] = [new_code, cli_otp]
+					for cicle in range (0,self.cicle_limit):
+						for i in range(0, self.auth_limit):
+							# print('SERVEROTP: {}'.format(str(i)))
+							new_code = hashlib.sha256(last_code.encode())
+							new_code = str(new_code.hexdigest())
+							last_code = new_code
+							# print('Calculanting: {}'.format(str(i+1)))
+							# print('I:{}\n NEWCODE: {}'.format(str(i), new_code))
+						my_hash = hmac.new(pickle.dumps(new_code), pickle.dumps(qrCodeClean), hashlib.sha256)
+						my_hash = str(my_hash.hexdigest())
+						# print('CODE: {}\n HASH:{}'.format(new_code, my_hash))
+						self.user_list[identification] = [new_code, cli_otp]
+						# print('Cicle number:{}'.format(cicle))
+						if my_hash == cli_hash:
+							# print('Authentication successful!\n')
+							# print('HASH {}'.format(my_hash))
+							break
+
 
 			else:
-				print('User does not exists!')
+				# print('User does not exists!')
+				pass
 
 		if my_hash == cli_hash:
-			print('Authentication successful!\n')
+			# print('Authentication successful!\n')
 			# print(my_hash)
 			# sconn.sendall(pickle.dumps(new_code))
 			cconn.sendall(b'Auth')
 		# pass
 		else:
-			print('Failed authentication')
+			# print('Failed authentication')
 			cconn.sendall(b'nAuth')
 		fim = time.time()
 
@@ -193,7 +211,7 @@ class Turnstile:
 		value = 0
 		for i in self.list_time:
 			value = value + i
-		print('time: {}'.format(value))
+		print('{}'.format(value))
 		# except:
 		# 	pass
 
@@ -227,7 +245,7 @@ class Turnstile:
 			
 			t.listen(1)
 			
-			#print('aaaaaaaaaaaa')
+			## print('aaaaaaaaaaaa')
 
 			cconn, cli = t.accept()
 
@@ -235,10 +253,9 @@ class Turnstile:
 				try:
 					self.requestAuth(sconn, cconn) #Call request list user functions.
 				except:
-					pass
-
+					exit(1)
 
 if __name__ == "__main__":
 	args = parseArguments()
-	Turnstile = Turnstile(args.sip, int(args.sport), args.tip, int(args.tport))
+	Turnstile = Turnstile(args.sip, int(args.sport), args.tip, int(args.tport), args.index, args.cicle)
 	Turnstile.listen()
